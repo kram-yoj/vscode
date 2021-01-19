@@ -43,6 +43,12 @@ export interface IExternalUriOpenerService {
 	 * Registers a provider for external resources openers.
 	 */
 	registerExternalOpenerProvider(provider: IExternalOpenerProvider): IDisposable;
+
+	/**
+	 * Get the configured IExternalUriOpener for the the uri.
+	 * If there is no opener configured, then returns the first opener that can handle the uri.
+	 */
+	getOpener(uri: URI, token: CancellationToken): Promise<IExternalUriOpener | undefined>;
 }
 
 export class ExternalUriOpenerService extends Disposable implements IExternalUriOpenerService, IExternalOpener {
@@ -67,21 +73,18 @@ export class ExternalUriOpenerService extends Disposable implements IExternalUri
 		return { dispose: remove };
 	}
 
-	async openExternal(href: string, ctx: { sourceUri: URI }, token: CancellationToken): Promise<boolean> {
-
-		const targetUri = typeof href === 'string' ? URI.parse(href) : href;
-
+	private async getOpeners(targetUri: URI, allowOptional: boolean, token: CancellationToken): Promise<IExternalUriOpener[]> {
 		const allOpeners = await this.getAllOpenersForUri(targetUri);
 
 		if (allOpeners.size === 0) {
-			return false;
+			return [];
 		}
 
 		// First check to see if we have a configured opener
 		const configuredOpener = this.getConfiguredOpenerForUri(allOpeners, targetUri);
 		if (configuredOpener) {
 			// Skip the `canOpen` check here since the opener was specifically requested.
-			return configuredOpener === 'default' ? false : configuredOpener.openExternalUri(targetUri, ctx, token);
+			return configuredOpener === 'default' ? [] : [configuredOpener];
 		}
 
 		// Then check to see if there is a valid opener
@@ -97,22 +100,44 @@ export class ExternalUriOpenerService extends Disposable implements IExternalUri
 			}
 		}));
 		if (validOpeners.length === 0) {
-			return false;
+			return [];
 		}
 
 		// See if we have a preferred opener first
 		const preferred = firstOrDefault(validOpeners.filter(x => x.priority === modes.ExternalUriOpenerPriority.Preferred));
 		if (preferred) {
-			return preferred.opener.openExternalUri(targetUri, ctx, token);
+			return [preferred.opener];
 		}
 
 		// See if we only have optional openers, use the default opener
-		if (validOpeners.every(x => x.priority === modes.ExternalUriOpenerPriority.Option)) {
+		if (!allowOptional && validOpeners.every(x => x.priority === modes.ExternalUriOpenerPriority.Option)) {
+			return [];
+		}
+
+		return validOpeners.map(value => value.opener);
+	}
+
+	async openExternal(href: string, ctx: { sourceUri: URI }, token: CancellationToken): Promise<boolean> {
+
+		const targetUri = typeof href === 'string' ? URI.parse(href) : href;
+
+		const allOpeners = await this.getOpeners(targetUri, false, token);
+		if (allOpeners.length === 0) {
 			return false;
+		} else if (allOpeners.length === 1) {
+			return allOpeners[0].openExternalUri(targetUri, ctx, token);
 		}
 
 		// Otherwise prompt
-		return this.showOpenerPrompt(validOpeners.map(x => x.opener), targetUri, ctx, token);
+		return this.showOpenerPrompt(allOpeners, targetUri, ctx, token);
+	}
+
+	async getOpener(targetUri: URI, token: CancellationToken): Promise<IExternalUriOpener | undefined> {
+		const allOpeners = await this.getOpeners(targetUri, true, token);
+		if (allOpeners.length >= 1) {
+			return allOpeners[0];
+		}
+		return undefined;
 	}
 
 	private async getAllOpenersForUri(targetUri: URI): Promise<Map<string, IExternalUriOpener>> {

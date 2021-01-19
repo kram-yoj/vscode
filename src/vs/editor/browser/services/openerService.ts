@@ -211,10 +211,12 @@ export class OpenerService implements IOpenerService {
 			href = encodeURI(resolved.toString(true));
 		}
 
-		for (const opener of this._externalOpeners) {
-			const didOpen = await opener.openExternal(href, { sourceUri: uri }, CancellationToken.None);
-			if (didOpen) {
-				return true;
+		if (!options?.useDefault) {
+			for (const opener of this._externalOpeners) {
+				const didOpen = await opener.openExternal(href, { sourceUri: uri }, CancellationToken.None);
+				if (didOpen) {
+					return true;
+				}
 			}
 		}
 

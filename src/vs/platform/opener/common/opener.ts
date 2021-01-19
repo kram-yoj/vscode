@@ -32,7 +32,7 @@ export type OpenInternalOptions = {
 	readonly fromUserGesture?: boolean;
 };
 
-export type OpenExternalOptions = { readonly openExternal?: boolean; readonly allowTunneling?: boolean };
+export type OpenExternalOptions = { readonly openExternal?: boolean; readonly allowTunneling?: boolean, readonly useDefault?: boolean };
 
 export type OpenOptions = OpenInternalOptions & OpenExternalOptions;
 
