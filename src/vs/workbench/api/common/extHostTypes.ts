@@ -1373,6 +1373,23 @@ export enum SignatureHelpTriggerKind {
 	ContentChange = 3,
 }
 
+@es5ClassCompat
+export class InlineHint {
+	text: string;
+	range: Range;
+	description?: string | vscode.MarkdownString;
+	whitespaceBefore?: boolean;
+	whitespaceAfter?: boolean;
+
+	constructor(text: string, range: Range, description?: string | vscode.MarkdownString, whitespaceBefore?: boolean, whitespaceAfter?: boolean) {
+		this.text = text;
+		this.range = range;
+		this.description = description;
+		this.whitespaceBefore = whitespaceBefore;
+		this.whitespaceAfter = whitespaceAfter;
+	}
+}
+
 export enum CompletionTriggerKind {
 	Invoke = 0,
 	TriggerCharacter = 1,
@@ -2298,9 +2315,6 @@ export class FunctionBreakpoint extends Breakpoint {
 
 	constructor(functionName: string, enabled?: boolean, condition?: string, hitCondition?: string, logMessage?: string) {
 		super(enabled, condition, hitCondition, logMessage);
-		if (!functionName) {
-			throw illegalArgument('functionName');
-		}
 		this.functionName = functionName;
 	}
 }
@@ -2975,6 +2989,7 @@ export type RequiredTestItem = {
 	[K in keyof Required<vscode.TestItem>]: K extends AllowedUndefined ? vscode.TestItem[K] : Required<vscode.TestItem>[K]
 };
 
+export type TestItem = vscode.TestItem;
 
 //#endregion
 
